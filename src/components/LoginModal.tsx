@@ -1,19 +1,24 @@
+
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { X, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit?: (email: string) => void;
   onToggleSignUp?: () => void;
 }
 
-const LoginModal = ({ isOpen, onClose, onSubmit, onToggleSignUp }: LoginModalProps) => {
+const LoginModal = ({ isOpen, onClose, onToggleSignUp }: LoginModalProps) => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const { login } = useAuth();
+  const { toast } = useToast();
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -23,12 +28,18 @@ const LoginModal = ({ isOpen, onClose, onSubmit, onToggleSignUp }: LoginModalPro
 
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await login(email);
       setIsSubmitted(true);
-      onSubmit?.(email);
-    }, 1500);
+    } catch (error) {
+      toast({
+        title: "Login Failed",
+        description: "Failed to send magic link. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClose = () => {
@@ -43,81 +54,114 @@ const LoginModal = ({ isOpen, onClose, onSubmit, onToggleSignUp }: LoginModalPro
     onToggleSignUp?.();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div 
-      className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={handleClose}
-    >
-      <div 
-        className="bg-card border border-border rounded-lg shadow-glow max-w-md w-full p-6 animate-scale-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-card-foreground">Welcome Back</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="h-6 w-6 p-0"
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={handleClose}
+        >
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ type: "spring", duration: 0.3 }}
+            className="bg-card border border-border rounded-lg shadow-glow max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
           >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {isSubmitted ? (
-          <div className="text-center py-8">
-            <Mail className="h-16 w-16 text-primary mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Check your inbox</h3>
-            <p className="text-muted-foreground">
-              We've sent a magic link to <strong>{email}</strong>
-            </p>
-          </div>
-        ) : (
-          <>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Input
-                  type="email"
-                  placeholder="Enter your email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full"
-                  disabled={isLoading}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-primary hover:opacity-90"
-                disabled={!isValidEmail || isLoading}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-card-foreground">Welcome Back</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                className="h-6 w-6 p-0"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending Magic Link...
-                  </>
-                ) : (
-                  "Send Magic Link"
-                )}
+                <X className="h-4 w-4" />
               </Button>
-            </form>
-            
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Don't have an account?{" "}
-                <button
-                  onClick={handleToggleSignUp}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Sign up here
-                </button>
-              </p>
             </div>
-          </>
-        )}
-      </div>
-    </div>
+
+            <AnimatePresence mode="wait">
+              {isSubmitted ? (
+                <motion.div
+                  key="success"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="text-center py-8"
+                >
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring" }}
+                  >
+                    <Mail className="h-16 w-16 text-primary mx-auto mb-4" />
+                  </motion.div>
+                  <h3 className="text-xl font-semibold mb-2">Check your inbox</h3>
+                  <p className="text-muted-foreground">
+                    We've sent a magic link to <strong>{email}</strong>
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="form"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                      <Input
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <motion.div
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Button 
+                        type="submit" 
+                        className="w-full bg-gradient-primary hover:opacity-90"
+                        disabled={!isValidEmail || isLoading}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending Magic Link...
+                          </>
+                        ) : (
+                          "Send Magic Link"
+                        )}
+                      </Button>
+                    </motion.div>
+                  </form>
+                  
+                  <div className="mt-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Don't have an account?{" "}
+                      <button
+                        onClick={handleToggleSignUp}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        Sign up here
+                      </button>
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
