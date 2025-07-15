@@ -1,5 +1,5 @@
-
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface User {
   id: string;
@@ -42,6 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const navigate = useNavigate();
 
   // Use API Gateway for auth endpoints, direct to User Service for user endpoints
   const API_GATEWAY_URL =
@@ -61,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const checkOnboardingStatus = (userData: User) => {
     console.log("[ONBOARDING CHECK] User data:", userData);
-    
+
     // Check if user needs onboarding (treat empty strings as incomplete)
     const needsProfile =
       !userData.fullName ||
@@ -72,13 +73,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       userData.gender.trim() === "" ||
       !userData.dateOfBirth ||
       userData.dateOfBirth.trim() === "";
-    
+
     console.log("[ONBOARDING CHECK] Needs profile:", needsProfile);
     console.log("[ONBOARDING CHECK] Full name:", userData.fullName);
     console.log("[ONBOARDING CHECK] Phone:", userData.phone);
     console.log("[ONBOARDING CHECK] Gender:", userData.gender);
     console.log("[ONBOARDING CHECK] DOB:", userData.dateOfBirth);
-    
+
     setNeedsOnboarding(needsProfile);
     return needsProfile;
   };
@@ -97,7 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const token = localStorage.getItem("auth_token");
       console.log("[FETCH USER] Token exists:", !!token);
-      
+
       const response = await fetch(`${API_GATEWAY_URL}/users/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -108,9 +109,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (response.ok) {
         const userData = await response.json();
-        console.log("[FETCH USER] User data received:", userData);
-        setUser(userData);
-        checkOnboardingStatus(userData);
+        const userObj = userData.data || userData; // handle {success, data} or direct object
+        console.log("[FETCH USER] User data received:", userObj);
+        setUser(userObj);
+        checkOnboardingStatus(userObj);
       } else {
         console.log("[FETCH USER] Failed, removing token");
         localStorage.removeItem("auth_token");
@@ -195,6 +197,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (token) {
       localStorage.setItem("auth_token", token);
       await fetchUser();
+      // After fetching user, check onboarding and redirect
+      // Use the latest user state
+      setTimeout(() => {
+        setUser((currentUser) => {
+          if (currentUser) {
+            const needsProfile =
+              !currentUser.fullName ||
+              currentUser.fullName.trim() === "" ||
+              !currentUser.phone ||
+              currentUser.phone.trim() === "" ||
+              !currentUser.gender ||
+              currentUser.gender.trim() === "" ||
+              !currentUser.dateOfBirth ||
+              currentUser.dateOfBirth.trim() === "";
+            if (needsProfile) {
+              navigate("/onboarding");
+            } else {
+              navigate("/dashboard");
+            }
+          }
+          return currentUser;
+        });
+      }, 0);
     } else {
       throw new Error("No token received");
     }
@@ -211,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const token = localStorage.getItem("auth_token");
       console.log("[UPDATE PROFILE] Sending data:", data);
-      
+
       const response = await fetch(`${API_GATEWAY_URL}/users/me`, {
         method: "PATCH",
         headers: {
@@ -225,9 +250,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (response.ok) {
         const updatedUser = await response.json();
-        console.log("[UPDATE PROFILE] Updated user:", updatedUser);
-        setUser(updatedUser);
-        checkOnboardingStatus(updatedUser);
+        let userObj = updatedUser.data || updatedUser;
+        // Map dob to dateOfBirth for frontend consistency
+        if (userObj.dateOfBirth) {
+          userObj.dateOfBirth = userObj.dateOfBirth;
+        }
+        // Fallback: if both are missing, try to extract from backend raw object
+        if (!userObj.dateOfBirth && userObj.dateOfBirth) {
+          userObj.dateOfBirth = userObj.dateOfBirth;
+        }
+        console.log("[UPDATE PROFILE] Updated user:", userObj);
+        setUser(userObj);
+        const needsProfile = checkOnboardingStatus(userObj);
+        if (!needsProfile) {
+          navigate("/dashboard");
+        }
+        // Force a refetch to ensure latest user data
+        await fetchUser();
       } else {
         const errorText = await response.text();
         console.error("[UPDATE PROFILE] Error:", errorText);

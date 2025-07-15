@@ -1,10 +1,9 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
 import OnboardingPage from "./pages/OnboardingPage";
@@ -24,6 +23,18 @@ const queryClient = new QueryClient({
 // Protected route wrapper that handles onboarding
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, needsOnboarding } = useAuth();
+
+  // Enhanced: check for id and all required fields
+  const isProfileIncomplete =
+    !user?.id ||
+    !user?.fullName ||
+    user?.fullName.trim() === "" ||
+    !user?.phone ||
+    user?.phone.trim() === "" ||
+    !user?.gender ||
+    user?.gender.trim() === "" ||
+    !user?.dateOfBirth ||
+    user?.dateOfBirth.trim() === "";
 
   console.log("[PROTECTED ROUTE] User:", !!user);
   console.log("[PROTECTED ROUTE] Loading:", isLoading);
@@ -45,8 +56,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/" replace />;
   }
 
-  if (needsOnboarding) {
-    console.log("[PROTECTED ROUTE] Needs onboarding, redirecting to onboarding");
+  if (needsOnboarding || isProfileIncomplete) {
+    console.log(
+      "[PROTECTED ROUTE] Needs onboarding, redirecting to onboarding"
+    );
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -57,6 +70,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Onboarding route wrapper
 const OnboardingRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, needsOnboarding } = useAuth();
+  const isProfileIncomplete =
+    !user?.id ||
+    !user?.fullName ||
+    user?.fullName.trim() === "" ||
+    !user?.phone ||
+    user?.phone.trim() === "" ||
+    !user?.gender ||
+    user?.gender.trim() === "" ||
+    !user?.dateOfBirth ||
+    user?.dateOfBirth.trim() === "";
 
   console.log("[ONBOARDING ROUTE] User:", !!user);
   console.log("[ONBOARDING ROUTE] Loading:", isLoading);
@@ -78,8 +101,10 @@ const OnboardingRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/" replace />;
   }
 
-  if (!needsOnboarding) {
-    console.log("[ONBOARDING ROUTE] Profile complete, redirecting to dashboard");
+  if (!needsOnboarding && !isProfileIncomplete) {
+    console.log(
+      "[ONBOARDING ROUTE] Profile complete, redirecting to dashboard"
+    );
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -90,21 +115,21 @@ const OnboardingRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<LandingPage />} />
-    <Route 
-      path="/onboarding" 
+    <Route
+      path="/onboarding"
       element={
         <OnboardingRoute>
           <OnboardingPage />
         </OnboardingRoute>
-      } 
+      }
     />
-    <Route 
-      path="/dashboard" 
+    <Route
+      path="/dashboard"
       element={
         <ProtectedRoute>
           <Dashboard />
         </ProtectedRoute>
-      } 
+      }
     />
     <Route path="/admin/login" element={<AdminLogin />} />
     <Route path="/legal/login" element={<LegalLogin />} />
@@ -112,18 +137,16 @@ const AppRoutes = () => (
   </Routes>
 );
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <Toaster />
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
         <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        <Toaster />
+        <AppRoutes />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
