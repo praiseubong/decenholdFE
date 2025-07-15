@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import OTPModal from "./OTPModal";
 
 interface SignUpModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface SignUpModalProps {
 const SignUpModal = ({ isOpen, onClose }: SignUpModalProps) => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
   const { signup } = useAuth();
   const { toast } = useToast();
 
@@ -29,11 +30,15 @@ const SignUpModal = ({ isOpen, onClose }: SignUpModalProps) => {
     
     try {
       await signup(email);
-      setIsSubmitted(true);
+      setShowOTP(true);
+      toast({
+        title: "OTP Sent",
+        description: "Please check your email for the verification code.",
+      });
     } catch (error) {
       toast({
         title: "Signup Failed",
-        description: "Failed to send magic link. Please try again.",
+        description: "Failed to send verification code. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -44,106 +49,88 @@ const SignUpModal = ({ isOpen, onClose }: SignUpModalProps) => {
   const handleClose = () => {
     setEmail("");
     setIsLoading(false);
-    setIsSubmitted(false);
+    setShowOTP(false);
     onClose();
   };
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={handleClose}
-        >
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ type: "spring", duration: 0.3 }}
-            className="bg-card border border-border rounded-lg shadow-glow max-w-md w-full p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-card-foreground">Create Your Account</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClose}
-                className="h-6 w-6 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+  const handleOTPClose = () => {
+    setShowOTP(false);
+  };
 
-            <AnimatePresence mode="wait">
-              {isSubmitted ? (
+  return (
+    <>
+      <AnimatePresence>
+        {isOpen && !showOTP && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={handleClose}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.3 }}
+              className="bg-card border border-border rounded-lg shadow-glow max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-card-foreground">Create Your Account</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClose}
+                  className="h-6 w-6 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Input
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full"
+                    disabled={isLoading}
+                  />
+                </div>
                 <motion.div
-                  key="success"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="text-center py-8"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.2, type: "spring" }}
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-gradient-primary hover:opacity-90"
+                    disabled={!isValidEmail || isLoading}
                   >
-                    <Mail className="h-16 w-16 text-primary mx-auto mb-4" />
-                  </motion.div>
-                  <h3 className="text-xl font-semibold mb-2">Check your inbox</h3>
-                  <p className="text-muted-foreground">
-                    We've sent a magic link to <strong>{email}</strong>
-                  </p>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending Code...
+                      </>
+                    ) : (
+                      "Send Verification Code"
+                    )}
+                  </Button>
                 </motion.div>
-              ) : (
-                <motion.form
-                  key="form"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onSubmit={handleSubmit}
-                  className="space-y-4"
-                >
-                  <div>
-                    <Input
-                      type="email"
-                      placeholder="Enter your email address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full"
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Button 
-                      type="submit" 
-                      className="w-full bg-gradient-primary hover:opacity-90"
-                      disabled={!isValidEmail || isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Sending Magic Link...
-                        </>
-                      ) : (
-                        "Send Magic Link"
-                      )}
-                    </Button>
-                  </motion.div>
-                </motion.form>
-              )}
-            </AnimatePresence>
+              </form>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+
+      <OTPModal 
+        isOpen={showOTP}
+        onClose={handleOTPClose}
+        email={email}
+        isSignup={true}
+      />
+    </>
   );
 };
 
