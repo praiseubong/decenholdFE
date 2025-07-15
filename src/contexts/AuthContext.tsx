@@ -81,12 +81,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const userData = await response.json();
         setUser(userData);
 
-        // Check if user needs onboarding
+        // Check if user needs onboarding (treat empty strings as incomplete)
         const needsProfile =
           !userData.fullName ||
+          userData.fullName.trim() === "" ||
           !userData.phone ||
+          userData.phone.trim() === "" ||
           !userData.gender ||
-          !userData.dateOfBirth;
+          userData.gender.trim() === "" ||
+          !userData.dateOfBirth ||
+          userData.dateOfBirth.trim() === "";
         setNeedsOnboarding(needsProfile);
       } else {
         localStorage.removeItem("auth_token");
@@ -195,12 +199,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const updatedUser = await response.json();
         setUser(updatedUser);
 
-        // Check if onboarding is complete
+        // Check if onboarding is complete (treat empty strings as incomplete)
         const needsProfile =
           !updatedUser.fullName ||
+          updatedUser.fullName.trim() === "" ||
           !updatedUser.phone ||
+          updatedUser.phone.trim() === "" ||
           !updatedUser.gender ||
-          !updatedUser.dateOfBirth;
+          updatedUser.gender.trim() === "" ||
+          !updatedUser.dateOfBirth ||
+          updatedUser.dateOfBirth.trim() === "";
         setNeedsOnboarding(needsProfile);
       } else {
         throw new Error("Profile update failed");
