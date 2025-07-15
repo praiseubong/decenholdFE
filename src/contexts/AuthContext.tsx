@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface User {
   id: string;
@@ -41,10 +42,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const navigate = useNavigate();
 
-  // Use API Gateway for all requests
-  const API_BASE_URL =
+  // Use API Gateway for auth endpoints, direct to User Service for user endpoints
+  const API_GATEWAY_URL =
     import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api/v1";
+  const USER_SERVICE_URL =
+    import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:3002";
 
   // Generate a simple device ID
   const getDeviceId = () => {
@@ -54,6 +58,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.setItem("device_id", deviceId);
     }
     return deviceId;
+  };
+
+  const checkOnboardingStatus = (userData: User) => {
+    console.log("[ONBOARDING CHECK] User data:", userData);
+
+    // Check if user needs onboarding (treat empty strings as incomplete)
+    const needsProfile =
+      !userData.fullName ||
+      userData.fullName.trim() === "" ||
+      !userData.phone ||
+      userData.phone.trim() === "" ||
+      !userData.gender ||
+      userData.gender.trim() === "" ||
+      !userData.dateOfBirth ||
+      userData.dateOfBirth.trim() === "";
+
+    console.log("[ONBOARDING CHECK] Needs profile:", needsProfile);
+    console.log("[ONBOARDING CHECK] Full name:", userData.fullName);
+    console.log("[ONBOARDING CHECK] Phone:", userData.phone);
+    console.log("[ONBOARDING CHECK] Gender:", userData.gender);
+    console.log("[ONBOARDING CHECK] DOB:", userData.dateOfBirth);
+
+    setNeedsOnboarding(needsProfile);
+    return needsProfile;
   };
 
   useEffect(() => {
@@ -69,29 +97,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const fetchUser = async () => {
     try {
       const token = localStorage.getItem("auth_token");
-      const response = await fetch(`${API_BASE_URL}/users/me`, {
+      console.log("[FETCH USER] Token exists:", !!token);
+
+      const response = await fetch(`${API_GATEWAY_URL}/users/me`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
+      console.log("[FETCH USER] Response status:", response.status);
+
       if (response.ok) {
         const userData = await response.json();
-        setUser(userData);
-
-        // Check if user needs onboarding
-        const needsProfile =
-          !userData.fullName ||
-          !userData.phone ||
-          !userData.gender ||
-          !userData.dateOfBirth;
-        setNeedsOnboarding(needsProfile);
+        const userObj = userData.data || userData; // handle {success, data} or direct object
+        console.log("[FETCH USER] User data received:", userObj);
+        setUser(userObj);
+        checkOnboardingStatus(userObj);
       } else {
+        console.log("[FETCH USER] Failed, removing token");
         localStorage.removeItem("auth_token");
+        setUser(null);
+        setNeedsOnboarding(false);
       }
     } catch (error) {
       console.error("Failed to fetch user:", error);
       localStorage.removeItem("auth_token");
+      setUser(null);
+      setNeedsOnboarding(false);
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     console.log("[LOGIN] Required:", { email, "x-device-id": deviceId });
     const payload = { email };
     console.log("[LOGIN] Sending:", payload);
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_GATEWAY_URL}/auth/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -120,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signup = async (email: string) => {
     const deviceId = getDeviceId();
-    const response = await fetch(`${API_BASE_URL}/api/v1/auth/signup`, {
+    const response = await fetch(`${API_GATEWAY_URL}/auth/signup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -145,7 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     });
     const payload = { email, otp };
     console.log("[VERIFY OTP] Sending:", payload);
-    const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+    const response = await fetch(`${API_GATEWAY_URL}/auth/verify-otp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -165,6 +197,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (token) {
       localStorage.setItem("auth_token", token);
       await fetchUser();
+      // After fetching user, check onboarding and redirect
+      // Use the latest user state
+      setTimeout(() => {
+        setUser((currentUser) => {
+          if (currentUser) {
+            const needsProfile =
+              !currentUser.fullName ||
+              currentUser.fullName.trim() === "" ||
+              !currentUser.phone ||
+              currentUser.phone.trim() === "" ||
+              !currentUser.gender ||
+              currentUser.gender.trim() === "" ||
+              !currentUser.dateOfBirth ||
+              currentUser.dateOfBirth.trim() === "";
+            if (needsProfile) {
+              navigate("/onboarding");
+            } else {
+              navigate("/dashboard");
+            }
+          }
+          return currentUser;
+        });
+      }, 0);
     } else {
       throw new Error("No token received");
     }
@@ -180,7 +235,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const updateProfile = async (data: Partial<User>) => {
     try {
       const token = localStorage.getItem("auth_token");
-      const response = await fetch(`${API_BASE_URL}/users/me`, {
+      console.log("[UPDATE PROFILE] Sending data:", data);
+
+      const response = await fetch(`${API_GATEWAY_URL}/users/me`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -189,18 +246,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         body: JSON.stringify(data),
       });
 
+      console.log("[UPDATE PROFILE] Response status:", response.status);
+
       if (response.ok) {
         const updatedUser = await response.json();
-        setUser(updatedUser);
-
-        // Check if onboarding is complete
-        const needsProfile =
-          !updatedUser.fullName ||
-          !updatedUser.phone ||
-          !updatedUser.gender ||
-          !updatedUser.dateOfBirth;
-        setNeedsOnboarding(needsProfile);
+        let userObj = updatedUser.data || updatedUser;
+        // Map dob to dateOfBirth for frontend consistency
+        if (userObj.dateOfBirth) {
+          userObj.dateOfBirth = userObj.dateOfBirth;
+        }
+        // Fallback: if both are missing, try to extract from backend raw object
+        if (!userObj.dateOfBirth && userObj.dateOfBirth) {
+          userObj.dateOfBirth = userObj.dateOfBirth;
+        }
+        console.log("[UPDATE PROFILE] Updated user:", userObj);
+        setUser(userObj);
+        const needsProfile = checkOnboardingStatus(userObj);
+        if (!needsProfile) {
+          navigate("/dashboard");
+        }
+        // Force a refetch to ensure latest user data
+        await fetchUser();
       } else {
+        const errorText = await response.text();
+        console.error("[UPDATE PROFILE] Error:", errorText);
         throw new Error("Profile update failed");
       }
     } catch (error) {
