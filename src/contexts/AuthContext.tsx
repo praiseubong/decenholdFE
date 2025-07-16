@@ -251,14 +251,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (response.ok) {
         const updatedUser = await response.json();
         let userObj = updatedUser.data || updatedUser;
-        // Map dob to dateOfBirth for frontend consistency
-        if (userObj.dateOfBirth) {
-          userObj.dateOfBirth = userObj.dateOfBirth;
-        }
-        // Fallback: if both are missing, try to extract from backend raw object
-        if (!userObj.dateOfBirth && userObj.dateOfBirth) {
-          userObj.dateOfBirth = userObj.dateOfBirth;
-        }
+        // Set profileCompleted if all profile fields are filled
+        userObj.profileCompleted = Boolean(
+          userObj.fullName &&
+            userObj.phone &&
+            userObj.gender &&
+            userObj.dateOfBirth
+        );
+        // Set documentsUploaded if user has all required docs (passport, nin, utility-bill)
+        userObj.documentsUploaded = Array.isArray(userObj.documents)
+          ? ["passport", "nin", "utility-bill"].every((type) =>
+              userObj.documents.some((doc: any) => doc.type === type)
+            )
+          : false;
         console.log("[UPDATE PROFILE] Updated user:", userObj);
         setUser(userObj);
         const needsProfile = checkOnboardingStatus(userObj);

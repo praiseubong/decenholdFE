@@ -1,17 +1,16 @@
-
-import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { Copy, Wallet, LogOut } from 'lucide-react';
-import KYCProgressBar from '@/components/KYCProgressBar';
-import ProfileForm from '@/components/Dashboard/ProfileForm';
-import DocumentUploader from '@/components/Dashboard/DocumentUploader';
-import LandSearch from '@/components/Dashboard/LandSearch';
-import TestEmailButton from '@/components/Dashboard/TestEmailButton';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { Navigate } from "react-router-dom";
+import { Copy, Wallet, LogOut } from "lucide-react";
+import KYCProgressBar from "@/components/KYCProgressBar";
+import ProfileForm from "@/components/Dashboard/ProfileForm";
+import DocumentUploader from "@/components/Dashboard/DocumentUploader";
+import LandSearch from "@/components/Dashboard/LandSearch";
+import TestEmailButton from "@/components/Dashboard/TestEmailButton";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user, isLoading, logout } = useAuth();
@@ -63,8 +62,12 @@ const Dashboard = () => {
               Manage your land ownership and complete your verification
             </p>
           </motion.div>
-          
-          <Button variant="outline" onClick={logout} className="flex items-center gap-2">
+
+          <Button
+            variant="outline"
+            onClick={logout}
+            className="flex items-center gap-2"
+          >
             <LogOut className="w-4 h-4" />
             Logout
           </Button>
@@ -90,16 +93,24 @@ const Dashboard = () => {
                 <CardContent>
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-muted-foreground mb-2">Wallet Address</p>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Wallet Address
+                      </p>
                       <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                         <code className="flex-1 text-sm font-mono">
-                          {user.walletAddress || '0x1234...5678'}
+                          {user.walletAddress
+                            ? `${user.walletAddress.slice(
+                                0,
+                                6
+                              )}...${user.walletAddress.slice(-6)}`
+                            : "0x1234...5678"}
                         </code>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={copyWalletAddress}
                           className="shrink-0"
+                          title="Copy full wallet address"
                         >
                           <Copy className="w-4 h-4" />
                         </Button>
@@ -108,13 +119,17 @@ const Dashboard = () => {
                     <div className="grid grid-cols-2 gap-4 text-center">
                       <div>
                         <p className="text-2xl font-bold text-primary">0</p>
-                        <p className="text-sm text-muted-foreground">Land Parcels</p>
+                        <p className="text-sm text-muted-foreground">
+                          Land Parcels
+                        </p>
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-accent">
-                          {user.kycStatus === 'approved' ? '✓' : '⏳'}
+                          {user.kycStatus === "approved" ? "✓" : "⏳"}
                         </p>
-                        <p className="text-sm text-muted-foreground">KYC Status</p>
+                        <p className="text-sm text-muted-foreground">
+                          KYC Status
+                        </p>
                       </div>
                     </div>
                   </div>
